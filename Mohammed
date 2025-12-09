@@ -1,0 +1,83 @@
+--------------------------------------------------- ui ------------------------------------------------------------------------------
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encryption</title>
+</head>
+<body>
+<center>
+<h3>تشفير و فك تشفير النصوص</h3>
+
+<?php if(isset($_GET["result"])): ?>
+    <h3>النتيجة:</h3>
+    <textarea rows="4" cols="60"><?php echo htmlspecialchars($_GET["result"]); ?></textarea>
+    <br><br>
+<?php endif; ?>
+
+<?php
+$plain_value = isset($_GET["plain"]) ? $_GET["plain"] : "";
+$enc_value   = isset($_GET["enc"])   ? $_GET["enc"]   : "";
+?>
+
+<form action="encrypt_logic.php" method="POST">
+    <label>النص المراد تشفيره</label><br>
+    <textarea name="plaintext" rows="4" cols="60"><?php echo htmlspecialchars($plain_value); ?></textarea><br>
+    <button type="submit" name="action" value="encrypt">تشفير</button>
+</form>
+
+<br><hr><br>
+
+<form action="encrypt_logic.php" method="POST">
+    <label>النص المشفر المراد فك تشفيره</label><br>
+    <textarea name="encrypted_text" rows="4" cols="60"><?php echo htmlspecialchars($enc_value); ?></textarea><br>
+    <button type="submit" name="action" value="decrypt">فك التشفير</button>
+</form>
+
+</center>
+</body>
+</html>
+
+
+--------------------------------------------- logic -------------------------------------------------------------------------------------------
+<?php
+
+$method = "AES-256-CBC";
+$passphrase = "MySecretPassphrase";
+$key = hash('sha256', $passphrase, true);
+
+$iv_length = openssl_cipher_iv_length($method);
+
+if($_SERVER["REQUEST_METHOD"] === "POST"){
+
+    $action = $_POST["action"];
+
+    if($action === "encrypt"){
+
+        $text = $_POST["plaintext"];
+
+        $iv = openssl_random_pseudo_bytes($iv_length);
+        $cipher_raw = openssl_encrypt($text, $method, $key, OPENSSL_RAW_DATA, $iv);
+        $output = base64_encode($iv . $cipher_raw);
+
+        header("Location: encrypt_ui.php?result=" . urlencode($output) . "&plain=" . urlencode($text));
+        exit;
+
+    } elseif($action === "decrypt"){
+
+        $enc = $_POST["encrypted_text"];
+        $decoded = base64_decode($enc);
+
+        $iv = substr($decoded, 0, $iv_length);
+        $cipher_raw = substr($decoded, $iv_length);
+
+        $text = openssl_decrypt($cipher_raw, $method, $key, OPENSSL_RAW_DATA, $iv);
+
+        header("Location: encrypt_ui.php?result=" . urlencode($text) . "&enc=" . urlencode($enc));
+        exit;
+    }
+}
+
+header("Location: encrypt_ui.php");
+exit;
